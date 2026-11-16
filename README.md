@@ -4,7 +4,8 @@
 
 ## 쓰는 법
 
-- 라이브: <https://jinha4826-ship-it.github.io/hoedok-note/>
+- 라이브: <https://jinha4826-ship-it.github.io/-/>
+- 저장소 이름을 바꾸면 GitHub Pages 주소도 그 이름을 따라 함께 바뀝니다.
 - iPhone에서는 Safari로 열고 **공유 → 홈 화면에 추가**를 누르면 앱처럼 전체 화면으로 실행됩니다.
 
 ## 기능
