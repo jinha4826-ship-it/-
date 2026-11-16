@@ -107,6 +107,10 @@
   .round-chip{font-size:11px;font-weight:800;padding:3px 8px;border-radius:8px;background:var(--surface-2);color:var(--ink-2)}
   .round-chip.done{background:var(--sage-soft);color:var(--sage)}
   .icon-btn{background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:2px 5px}
+  .subj-top-actions{display:flex;align-items:center;gap:1px;flex:0 0 auto}
+  .goal-chip{font-size:11px;font-weight:800;padding:3px 8px;border-radius:8px;background:var(--amber-soft);color:var(--amber);white-space:nowrap}
+  .goal-chip.over{background:var(--coral-soft);color:var(--coral)}
+  .goal-chip.today{background:var(--navy-soft);color:var(--navy)}
 
   .prog-meta{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--ink-2);font-weight:700;margin:11px 0 6px;padding-left:6px}
   .bar-track{height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin-left:6px}
@@ -274,6 +278,10 @@
             <input id="fDone" type="number" min="0" value="0" />
           </div>
         </div>
+        <div>
+          <label>과목 목표일 (선택 · 비워두면 시험일 기준)</label>
+          <input id="fTarget" type="date" />
+        </div>
         <button class="btn btn-main" id="addSubjBtn">과목 등록하기</button>
       </div>
     </div>
@@ -296,6 +304,28 @@
     <button class="nav-btn" data-view="reviews"><span class="nav-ico">🔁</span><span>복습</span></button>
     <button class="nav-btn" data-view="manage"><span class="nav-ico">＋</span><span>추가·백업</span></button>
   </nav>
+</div>
+
+<div class="modal-bg" id="subjModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">과목 수정</div>
+      <button class="close-btn" id="closeSubjBtn">닫기</button>
+    </div>
+    <div class="form-grid">
+      <div><label>과목 · 교재명</label><input id="eName" placeholder="예: 행정법 기본강의" /></div>
+      <div><label>전체 분량</label><input id="eTotal" type="number" min="1" /></div>
+      <div class="row2">
+        <div><label>완료 분량</label><input id="eDone" type="number" min="0" /></div>
+        <div><label>현재 회독</label><input id="eRound" type="number" min="1" /></div>
+      </div>
+      <div>
+        <label>과목 목표일 (선택 · 비워두면 시험일 기준)</label>
+        <input id="eTarget" type="date" />
+      </div>
+      <button class="btn btn-main" id="saveSubjBtn">저장하기</button>
+    </div>
+  </div>
 </div>
 
 <div class="modal-bg" id="examModal">
@@ -353,6 +383,17 @@ function daysLeft(){
   const a = new Date(todayStr() + 'T00:00:00');
   const b = new Date((state.examDate || '2027-03-27') + 'T00:00:00');
   return Math.ceil((b - a) / 86400000);
+}
+
+function subjectDaysLeft(s){
+  const target = (s && s.targetDate) ? s.targetDate : (state.examDate || '2027-03-27');
+  const a = new Date(todayStr() + 'T00:00:00');
+  const b = new Date(target + 'T00:00:00');
+  return Math.ceil((b - a) / 86400000);
+}
+
+function ddayLabel(d){
+  return d > 0 ? `D-${d}` : (d === 0 ? 'D-Day' : `D+${Math.abs(d)}`);
 }
 
 function calcStreak(){
@@ -428,7 +469,6 @@ function recordComplete(s, isHard){
 function renderSubjects(){
   const box = document.getElementById('subjectList');
   box.innerHTML = '';
-  const d = Math.max(1, daysLeft());
 
   if(!state.subjects.length){
     box.innerHTML = '<div class="card empty">등록된 과목이 없어요.<br><b>+ 과목 추가</b>를 눌러 과목을 만들어 보세요!</div>';
@@ -439,10 +479,21 @@ function renderSubjects(){
     const color = s.color || COLORS[idx % COLORS.length];
     const pct = s.total ? Math.min(100, Math.round((s.done / s.total) * 100)) : 0;
     const remain = Math.max(0, s.total - s.done);
+    const dl = subjectDaysLeft(s);
+    const d = Math.max(1, dl);
     const perDay = remain > 0 ? remain / d : 0;
-    const paceStr = remain === 0
-      ? '✨ 이번 회독 완주! 다음 회독으로 넘겨보세요.'
-      : `남은 ${remain}${esc(s.unit)} ÷ ${d}일 → 하루 <strong>${perDay < 1 ? perDay.toFixed(2) : (Math.ceil(perDay*10)/10)}${esc(s.unit)}</strong>씩`;
+    let paceStr;
+    if(remain === 0){
+      paceStr = '✨ 이번 회독 완주! 다음 회독으로 넘겨보세요.';
+    }else if(dl < 0){
+      paceStr = `⚠️ 목표일이 <strong>${Math.abs(dl)}일</strong> 지났어요 · 남은 ${remain}${esc(s.unit)}`;
+    }else{
+      paceStr = `남은 ${remain}${esc(s.unit)} ÷ ${d}일 → 하루 <strong>${perDay < 1 ? perDay.toFixed(2) : (Math.ceil(perDay*10)/10)}${esc(s.unit)}</strong>씩`;
+      if(s.targetDate) paceStr += ` <span style="color:var(--muted)">(목표일 ${esc(s.targetDate)} 기준)</span>`;
+    }
+    const goalChip = s.targetDate
+      ? `<span class="goal-chip ${dl < 0 ? 'over' : (dl === 0 ? 'today' : '')}">목표 ${ddayLabel(dl)}</span>`
+      : '';
 
     const el = document.createElement('div');
     el.className = 'subj-card';
@@ -452,8 +503,12 @@ function renderSubjects(){
         <div class="subj-name-row">
           <span class="subj-name">${esc(s.name)}</span>
           <span class="round-chip ${remain===0?'done':''}">${s.round}회독</span>
+          ${goalChip}
         </div>
-        <button class="icon-btn del-btn" title="삭제">✕</button>
+        <div class="subj-top-actions">
+          <button class="icon-btn edit-btn" title="과목 수정" aria-label="과목 수정">📅</button>
+          <button class="icon-btn del-btn" title="삭제" aria-label="삭제">✕</button>
+        </div>
       </div>
       <div class="prog-meta">
         <span>${s.done} / ${s.total} ${esc(s.unit)}</span>
@@ -469,6 +524,7 @@ function renderSubjects(){
       </div>
     `;
 
+    el.querySelector('.edit-btn').onclick = () => openSubjModal(s);
     el.querySelector('.del-btn').onclick = () => {
       if(confirm(`'${s.name}' 과목을 지울까요?`)){
         state.subjects = state.subjects.filter(x => x.id !== s.id);
@@ -537,13 +593,48 @@ document.getElementById('addSubjBtn').onclick = () => {
   const round = Math.max(1, Number(document.getElementById('fRound').value) || 1);
   const total = Math.max(1, Number(document.getElementById('fTotal').value) || 0);
   const done = Math.max(0, Math.min(total, Number(document.getElementById('fDone').value) || 0));
+  const targetDate = document.getElementById('fTarget').value || '';
   if(!name || !total){ alert('과목명과 전체 분량을 입력해 주세요!'); return; }
-  state.subjects.push({ id:'s_'+Date.now(), name, unit, round, total, done, color:COLORS[state.subjects.length % COLORS.length] });
+  state.subjects.push({ id:'s_'+Date.now(), name, unit, round, total, done, targetDate, color:COLORS[state.subjects.length % COLORS.length] });
   save();
   document.getElementById('fName').value = '';
   document.getElementById('fTotal').value = '';
   document.getElementById('fDone').value = '0';
+  document.getElementById('fTarget').value = '';
   switchView('subjects');
+  renderAll();
+};
+
+let editingId = null;
+function openSubjModal(s){
+  editingId = s.id;
+  document.getElementById('eName').value = s.name || '';
+  document.getElementById('eTotal').value = s.total || '';
+  document.getElementById('eDone').value = s.done || 0;
+  document.getElementById('eRound').value = s.round || 1;
+  document.getElementById('eTarget').value = s.targetDate || '';
+  document.getElementById('subjModal').classList.add('open');
+}
+function closeSubjModal(){ document.getElementById('subjModal').classList.remove('open'); }
+document.getElementById('closeSubjBtn').onclick = closeSubjModal;
+document.getElementById('subjModal').onclick = e => { if(e.target.id === 'subjModal') closeSubjModal(); };
+document.getElementById('saveSubjBtn').onclick = () => {
+  const s = state.subjects.find(x => x.id === editingId);
+  if(!s){ closeSubjModal(); return; }
+  const name = document.getElementById('eName').value.trim();
+  const total = Math.max(1, Number(document.getElementById('eTotal').value) || 0);
+  const doneRaw = Number(document.getElementById('eDone').value) || 0;
+  const round = Math.max(1, Number(document.getElementById('eRound').value) || 1);
+  const targetDate = document.getElementById('eTarget').value || '';
+  if(!name || !total){ alert('과목명과 전체 분량을 입력해 주세요!'); return; }
+  if(targetDate && targetDate < todayStr() && !confirm('이미 지난 날짜예요. 지난 목표일로 저장할까요?')) return;
+  s.name = name;
+  s.total = total;
+  s.done = Math.max(0, Math.min(total, doneRaw));
+  s.round = round;
+  s.targetDate = targetDate;
+  save();
+  closeSubjModal();
   renderAll();
 };
 
